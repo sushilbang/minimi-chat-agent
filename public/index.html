@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  // Apply the saved theme before first paint to avoid a flash.
+  try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+</script>
+<style>
+:root {
+  --shell: #f4f4f5; --bg: #ffffff; --card: #ffffff; --text: #111113; --muted: #8b8b92;
+  --border: #e9e9ec; --user: #f4f4f5; --accent: #111113; --accent-hover: #34343a; --accent-fg: #ffffff;
+  --code: #f4f4f5; --hover: #ebebed; --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 30px rgba(0,0,0,.06);
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --shell: #09090a; --bg: #111113; --card: #17171a; --text: #ececef; --muted: #8b8b92;
+    --border: #26262a; --user: #1c1c20; --accent: #ffffff; --accent-hover: #d6d6da; --accent-fg: #09090a;
+    --code: #1c1c20; --hover: #1c1c20; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 30px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --shell: #09090a; --bg: #111113; --card: #17171a; --text: #ececef; --muted: #8b8b92;
+  --border: #26262a; --user: #1c1c20; --accent: #ffffff; --accent-hover: #d6d6da; --accent-fg: #09090a;
+  --code: #1c1c20; --hover: #1c1c20; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 30px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+html, body { height: 100%; margin: 0; }
+body { background: var(--shell); color: var(--text); font-family: var(--sans); display: flex; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+svg { display: block; }
+
+/* sidebar */
+#sidebar { width: 252px; flex: none; display: flex; flex-direction: column; padding: 16px 10px 12px 14px; }
+.top { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 14px 8px; }
+.brand { font-weight: 600; font-size: 15px; letter-spacing: -.01em; }
+.icon-btn { width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; display: grid; place-items: center; color: var(--muted); }
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.section { font-size: 12px; color: var(--muted); padding: 14px 8px 6px; }
+#convs { overflow-y: auto; flex: 1; margin-right: -4px; }
+.conv { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 8px; border-radius: 8px; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv:hover, .conv.active { background: var(--hover); }
+.side-foot { padding-top: 8px; display: flex; }
+
+/* main card */
+main { flex: 1; min-width: 0; display: flex; flex-direction: column; margin: 10px 10px 10px 0; border-radius: 20px; background: var(--bg); border: 1px solid var(--border); box-shadow: var(--shadow); position: relative; overflow: hidden; }
+#menu { display: none; position: absolute; top: 10px; left: 10px; z-index: 5; }
+#scroll { flex: 1; overflow-y: auto; }
+#thread { max-width: 760px; margin: 0 auto; padding: 40px 28px 24px; }
+.msg { margin-bottom: 30px; }
+.user { background: var(--user); border-radius: 16px 16px 4px 16px; padding: 11px 16px; width: fit-content; max-width: 80%; margin-left: auto; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; font-size: 15px; }
+.bot { font-size: 15.5px; line-height: 1.65; overflow-wrap: anywhere; }
+.bot > :first-child { margin-top: 0; } .bot > :last-child { margin-bottom: 0; }
+.bot p, .bot ul, .bot ol, .bot table, .bot pre { margin: 0 0 .9em; }
+.bot li { margin: .25em 0; }
+.bot strong { font-weight: 600; }
+.bot a { color: var(--text); text-decoration-color: var(--muted); text-underline-offset: 3px; }
+.bot a:hover { text-decoration-color: var(--text); }
+.bot code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.87em; background: var(--code); padding: 2px 5px; border-radius: 5px; }
+.bot pre { background: var(--code); padding: 12px 14px; border-radius: 12px; overflow-x: auto; }
+.bot pre code { background: none; padding: 0; }
+.bot table { border-collapse: collapse; display: block; overflow-x: auto; font-size: 14px; }
+.bot th, .bot td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+.bot th { background: var(--code); font-weight: 600; }
+.bot h1, .bot h2, .bot h3 { font-weight: 600; letter-spacing: -.02em; line-height: 1.3; margin: 1.5em 0 .55em; }
+.bot h1 { font-size: 1.3em; } .bot h2 { font-size: 1.18em; } .bot h3 { font-size: 1.05em; }
+.bot h1, .bot h2 { border-top: 1px dotted var(--border); padding-top: 1.1em; }
+.bot > h1:first-child, .bot > h2:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.bot hr { border: 0; border-top: 1px dotted var(--border); margin: 1.4em 0; }
+.bot blockquote { margin: 0 0 .9em; padding-left: 14px; border-left: 2px solid var(--border); color: var(--muted); }
+.err { color: #d4382c; font-size: 14px; }
+
+.activity { font-size: 13.5px; color: var(--muted); margin: 0 0 14px; }
+.activity summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; }
+.activity summary::-webkit-details-marker { display: none; }
+.activity .chev { transition: transform .15s; } .activity[open] .chev { transform: rotate(90deg); }
+.activity ul { list-style: none; margin: 6px 0 0 4px; padding: 0 0 0 14px; border-left: 1px solid var(--border); }
+.activity li { padding: 4px 0; }
+.activity .q { color: var(--text); }
+.activity .src { display: block; font-size: 12.5px; padding: 1px 0 1px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.activity .src a { color: var(--muted); text-decoration: none; } .activity .src a:hover { color: var(--text); text-decoration: underline; }
+.spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--text); animation: rot .8s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.dots { display: inline-flex; gap: 4px; padding: 8px 0; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: pulse 1.2s infinite ease-in-out; }
+.dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes pulse { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+/* composer */
+#composer-wrap { padding: 0 28px 14px; position: relative; }
+#composer { max-width: 760px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 14px 14px 12px 18px; display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, box-shadow .15s; }
+#composer:focus-within { border-color: var(--muted); box-shadow: 0 0 0 3px color-mix(in srgb, var(--muted) 18%, transparent); }
+#input { width: 100%; border: 0; outline: 0; resize: none; background: none; color: var(--text); font: inherit; font-size: 15.5px; line-height: 1.55; min-height: 48px; max-height: 220px; padding: 2px 0; }
+#input::placeholder { color: var(--muted); }
+.row { display: flex; justify-content: flex-end; }
+#send { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; transition: background .15s, opacity .15s; }
+#send:hover:not(:disabled) { background: var(--accent-hover); }
+#send:disabled { opacity: .25; cursor: default; }
+.foot { text-align: center; font-size: 12px; color: var(--muted); margin-top: 10px; }
+#down { position: absolute; left: 50%; top: -46px; transform: translateX(-50%); width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: var(--text); display: none; place-items: center; box-shadow: var(--shadow); }
+#down.show { display: grid; }
+
+/* landing */
+body.landing #scroll { display: none; }
+body.landing main { justify-content: center; }
+body.landing #composer-wrap { padding-bottom: 0; }
+#hero { display: none; text-align: center; padding: 0 28px 24px; }
+body.landing #hero { display: block; }
+#hero h1 { font-weight: 600; letter-spacing: -.03em; font-size: clamp(26px, 4.5vw, 34px); margin: 0; }
+body.landing .foot, body.landing #down { display: none; }
+
+@media (max-width: 760px) {
+  #sidebar { position: fixed; z-index: 10; inset: 0 auto 0 0; background: var(--shell); transform: translateX(-100%); transition: transform .2s; width: 270px; }
+  body.nav #sidebar { transform: none; box-shadow: 0 0 40px rgba(0,0,0,.25); }
+  main { margin: 0; border-radius: 0; border: 0; }
+  #menu { display: grid; }
+  #thread { padding: 56px 16px 20px; }
+  #composer-wrap { padding: 0 14px 12px; }
+}
+</style>
+</head>
+<body class="landing">
+<aside id="sidebar">
+  <div class="top">
+    <span class="brand">Chat</span>
+    <button id="new-chat" class="icon-btn" aria-label="New chat" title="New chat"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+  <div class="section">Recents</div>
+  <div id="convs"></div>
+  <div class="side-foot">
+    <button id="theme" class="icon-btn" aria-label="Toggle theme" title="Toggle theme"></button>
+  </div>
+</aside>
+
+<main>
+  <button id="menu" class="icon-btn" aria-label="Open menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <div id="scroll"><div id="thread"></div></div>
+  <div id="hero">
+    <h1 id="greeting">How can I help you today?</h1>
+  </div>
+  <div id="composer-wrap">
+    <button id="down" type="button" aria-label="Scroll to latest"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+    <form id="composer" autocomplete="off">
+      <textarea id="input" rows="1" placeholder="Ask anything…" autofocus></textarea>
+      <div class="row">
+        <button id="send" type="submit" disabled aria-label="Send"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </div>
+    </form>
+    <div class="foot">Answers come from live web search and can be wrong. Check important info.</div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const thread = $("#thread"), scroller = $("#scroll"), input = $("#input"), sendBtn = $("#send");
+const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+let convId = crypto.randomUUID();
+let busy = false;
+
+const h = new Date().getHours();
+$("#greeting").textContent = (h < 5 ? "Burning the midnight oil?" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening") + ". What are we looking up?";
+
+function md(text) {
+  const html = marked.parse(text, { gfm: true, breaks: false });
+  const clean = DOMPurify.sanitize(html, { ADD_ATTR: ["target"] });
+  const t = document.createElement("template"); t.innerHTML = clean;
+  t.content.querySelectorAll("a").forEach((a) => { a.target = "_blank"; a.rel = "noopener noreferrer"; });
+  return t.content;
+}
+
+let stick = true;
+scroller.addEventListener("scroll", () => {
+  stick = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
+  $("#down").classList.toggle("show", !stick);
+});
+$("#down").onclick = () => { stick = true; scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" }); };
+const toBottom = () => { if (stick) scroller.scrollTop = scroller.scrollHeight; };
+
+function addUser(text) {
+  const m = document.createElement("div"); m.className = "msg";
+  const u = document.createElement("div"); u.className = "user"; u.textContent = text;
+  m.appendChild(u); thread.appendChild(m);
+}
+const CHEV = '<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>';
+const filterNote = (s) => (s.kind === "news" ? " · news" : "") + (s.since ? ` · since ${s.since}` : s.recency ? ` · past ${s.recency}` : "");
+function addSources(li, results, error) {
+  if (error) { const s = document.createElement("span"); s.className = "src"; s.textContent = error; li.appendChild(s); }
+  (results || []).slice(0, 4).forEach((r) => {
+    const s = document.createElement("span"); s.className = "src";
+    const a = document.createElement("a"); a.href = r.url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = r.title;
+    if (r.snippet) a.title = (r.age ? r.age + " — " : "") + r.snippet;
+    s.appendChild(a); li.appendChild(s);
+  });
+}
+function addBot(text, searches) {
+  const m = document.createElement("div"); m.className = "msg";
+  if (searches && searches.length) {
+    const d = document.createElement("details"); d.className = "activity";
+    const sum = document.createElement("summary");
+    sum.innerHTML = CHEV + `Searched the web · ${searches.length} ${searches.length === 1 ? "query" : "queries"}`;
+    const ul = document.createElement("ul");
+    searches.forEach((s) => {
+      const li = document.createElement("li");
+      const q = document.createElement("span"); q.className = "q"; q.textContent = s.query + filterNote(s); li.appendChild(q);
+      addSources(li, s.results, s.error); ul.appendChild(li);
+    });
+    d.append(sum, ul); m.appendChild(d);
+  }
+  const b = document.createElement("div"); b.className = "bot";
+  b.appendChild(md(text)); m.appendChild(b); thread.appendChild(m);
+}
+
+function autosize() {
+  input.style.height = "";
+  if (input.value) { input.style.height = "auto"; input.style.height = Math.min(Math.max(input.scrollHeight, 48), 220) + "px"; }
+  sendBtn.disabled = busy || !input.value.trim();
+}
+input.addEventListener("input", autosize);
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!sendBtn.disabled) send(); }
+});
+$("#composer").addEventListener("submit", (e) => { e.preventDefault(); if (!sendBtn.disabled) send(); });
+
+async function send() {
+  const text = input.value.trim();
+  if (!text || busy) return;
+  busy = true; input.value = ""; autosize();
+  document.body.classList.remove("landing");
+  stick = true;
+  addUser(text);
+
+  const msg = document.createElement("div"); msg.className = "msg";
+  const activity = document.createElement("details"); activity.className = "activity"; activity.hidden = true;
+  const summary = document.createElement("summary");
+  const list = document.createElement("ul");
+  activity.append(summary, list);
+  const bot = document.createElement("div"); bot.className = "bot";
+  bot.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
+  msg.append(activity, bot); thread.appendChild(msg); toBottom();
+
+  const items = new Map(); let pending = 0, total = 0, text_ = "", raf = 0;
+  const setSummary = () => {
+    summary.innerHTML = CHEV +
+      (pending ? '<span class="spin"></span>Searching the web…' : `Searched the web · ${total} ${total === 1 ? "query" : "queries"}`);
+  };
+  const render = () => { raf = 0; bot.replaceChildren(md(text_)); toBottom(); };
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId: convId, message: text, tz }),
+    });
+    if (!res.ok || !res.body) throw new Error("Request failed (" + res.status + ")");
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+        const line = chunk.split("\n").find((l) => l.startsWith("data:"));
+        if (!line) continue;
+        const ev = JSON.parse(line.slice(5).trim());
+        if (ev.type === "search") {
+          activity.hidden = false; pending++; total++;
+          const li = document.createElement("li");
+          li.innerHTML = '<span class="q"></span>'; li.firstChild.textContent = ev.query + filterNote(ev);
+          list.appendChild(li); items.set(ev.id, li); setSummary();
+        } else if (ev.type === "results") {
+          pending = Math.max(0, pending - 1); setSummary();
+          const li = items.get(ev.id);
+          if (li) addSources(li, ev.results, ev.error);
+        } else if (ev.type === "text") {
+          text_ += ev.delta; if (!raf) raf = requestAnimationFrame(render);
+        } else if (ev.type === "error") {
+          throw new Error(ev.message);
+        }
+      }
+    }
+    if (raf) cancelAnimationFrame(raf);
+    if (text_) render(); else bot.textContent = "";
+  } catch (err) {
+    if (raf) cancelAnimationFrame(raf);
+    if (text_) render(); else bot.textContent = "";
+    const e = document.createElement("p"); e.className = "err"; e.textContent = "Something went wrong: " + err.message;
+    bot.appendChild(e);
+  } finally {
+    pending = 0; if (total) setSummary();
+    busy = false; autosize(); input.focus(); loadConvs();
+  }
+}
+
+async function loadConvs() {
+  try {
+    const list = await (await fetch("/api/conversations")).json();
+    const box = $("#convs"); box.replaceChildren();
+    list.forEach((c) => {
+      const b = document.createElement("button");
+      b.className = "conv" + (c.id === convId ? " active" : ""); b.textContent = c.title;
+      b.onclick = () => openConv(c.id); box.appendChild(b);
+    });
+  } catch {}
+}
+
+async function openConv(id) {
+  if (busy) return;
+  convId = id; thread.replaceChildren(); document.body.classList.remove("landing", "nav");
+  const msgs = await (await fetch("/api/conversations/" + id)).json();
+  msgs.forEach((m) => (m.role === "user" ? addUser(m.content) : addBot(m.content, m.searches)));
+  stick = true; toBottom(); loadConvs();
+}
+
+function newChat() {
+  if (busy) return;
+  convId = crypto.randomUUID(); thread.replaceChildren();
+  document.body.classList.add("landing"); document.body.classList.remove("nav");
+  input.focus(); loadConvs();
+}
+$("#new-chat").onclick = newChat;
+
+// Theme follows the system until the user picks one; the pick is remembered.
+const SUN = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>';
+const isDark = () => (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+const paintTheme = () => { $("#theme").innerHTML = isDark() ? SUN : MOON; };
+$("#theme").onclick = () => {
+  const next = isDark() ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("theme", next); } catch {}
+  paintTheme();
+};
+paintTheme();
+
+$("#menu").onclick = () => document.body.classList.toggle("nav");
+document.querySelector("main").addEventListener("click", () => document.body.classList.remove("nav"));
+loadConvs(); autosize();
+</script>
+</body>
+</html>
